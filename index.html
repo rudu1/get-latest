@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Get Latest | Multi-Source Trend Search</title>
+  <meta
+    name="description"
+    content="Search Bluesky and Hacker News to see what people are talking about, with optional AI summaries."
+  >
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap"
+    rel="stylesheet"
+  >
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="universe-bg" aria-hidden="true">
+    <div class="starfield starfield-a"></div>
+    <div class="starfield starfield-b"></div>
+    <div class="nebula nebula-a"></div>
+    <div class="nebula nebula-b"></div>
+  </div>
+  <div class="page-shell">
+    <header class="app-header">
+      <div class="brand-stack">
+        <a class="brand" href="#top">Get Latest</a>
+        <p class="app-subtitle">Search live conversation from Bluesky, Reddit, and Hacker News.</p>
+      </div>
+      <div class="topbar-pills">
+        <span class="status-pill">Bluesky + Reddit + Hacker News</span>
+        <span class="status-pill" id="ai-mode-pill">AI digest optional</span>
+      </div>
+    </header>
+
+    <main class="content-grid">
+      <section class="panel search-workspace" aria-labelledby="results-title">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Search mode</p>
+            <h2 id="results-title">Search area</h2>
+          </div>
+          <div class="hero-stats" id="hero-stats">
+            <div class="summary-pill">Live sources: Bluesky, Reddit, Hacker News</div>
+            <div class="summary-pill">AI summary: add your OpenAI key</div>
+            <div class="summary-pill">Desktop and phone ready</div>
+          </div>
+        </div>
+
+        <form class="search-panel" id="search-form">
+          <label class="search-label" for="search-input">Search a topic</label>
+          <div class="search-row">
+            <input
+              id="search-input"
+              name="query"
+              type="search"
+              placeholder="Try GTA 6, Superman, Tesla, IPL..."
+              autocomplete="off"
+              required
+            >
+            <button type="submit" id="search-button">Search Now</button>
+          </div>
+          <p class="topic-strip-label">Top 5 live topics right now</p>
+          <div class="quick-tags" id="suggested-topics" aria-label="Suggested searches">
+            <button type="button" class="chip" data-query="Loading">Loading...</button>
+          </div>
+        </form>
+
+        <div class="panel-scroll">
+          <p class="section-note" id="results-note">
+            Search to combine fast Bluesky posts, Reddit threads, and Hacker News matches around the same topic.
+          </p>
+
+          <div id="results-summary" class="summary-card hidden"></div>
+          <div id="results-status" class="status-text" aria-live="polite"></div>
+
+          <div id="empty-state" class="empty-state">
+            <h3>Start with a search</h3>
+            <p>
+              Enter a topic like <strong>GTA 6</strong> and this app will pull
+              recent Bluesky discussion, Reddit threads, Hacker News matches, and a summary view
+              of the main themes people are talking about.
+            </p>
+          </div>
+
+          <div id="results-list" class="card-list"></div>
+        </div>
+      </section>
+
+      <section class="panel trends-sidebar" aria-labelledby="trending-title">
+        <div class="panel-head panel-head-compact">
+          <div>
+            <p class="section-kicker">Live feed</p>
+            <h2 id="trending-title">Top 10 trend</h2>
+          </div>
+          <button type="button" class="ghost-button" id="refresh-trending">Refresh</button>
+        </div>
+
+        <div class="panel-scroll">
+          <p class="section-note">
+            A blended view of Bluesky hot posts, Reddit popular threads, and Hacker News front-page stories.
+          </p>
+
+          <div id="trending-summary" class="summary-card">
+            <p class="summary-loading">Loading trend digest...</p>
+          </div>
+          <div id="trending-status" class="status-text" aria-live="polite"></div>
+          <div id="trending-list" class="card-list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <template id="card-template">
+    <article class="trend-card">
+      <div class="card-meta">
+        <span class="source-pill"></span>
+        <span class="bucket-pill"></span>
+        <span class="time-pill"></span>
+      </div>
+      <h3 class="card-title"></h3>
+      <p class="card-body"></p>
+      <div class="card-context">
+        <span class="context-item author-item"></span>
+        <span class="context-item community-item"></span>
+      </div>
+      <div class="card-stats">
+        <span class="stat score-stat"></span>
+        <span class="stat discussion-stat"></span>
+        <span class="stat extra-stat"></span>
+      </div>
+      <div class="link-row">
+        <a class="card-link open-link" target="_blank" rel="noreferrer">Open Source</a>
+        <a class="card-link discuss-link" target="_blank" rel="noreferrer">Open Discussion</a>
+      </div>
+    </article>
+  </template>
+
+  <script src="./script.js"></script>
+</body>
+</html>
