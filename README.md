@@ -40,6 +40,22 @@ Get Latest is a responsive trend-search website that blends:
 
    [http://127.0.0.1:8000](http://127.0.0.1:8000)
 
+## Host it on the internet
+
+This app has a Python backend, so do not use GitHub Pages for deployment. GitHub Pages only hosts static files.
+
+The easiest option is Render:
+
+1. Push your code to GitHub.
+2. Go to Render and create a new Blueprint or new Web Service from this repo.
+3. Render can use the included `render.yaml` file in the repo root.
+4. If prompted for environment variables, set:
+   - `OPENAI_API_KEY` if you want AI summaries
+   - `OPENAI_MODEL` optionally, default is `gpt-5-mini`
+5. Deploy.
+
+The app is already set up to read Render's `PORT` environment variable and bind to `0.0.0.0`.
+
 ## Notes
 
 - Bluesky, Reddit, and Hacker News data is fetched server-side.

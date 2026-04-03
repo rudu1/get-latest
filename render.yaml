@@ -1,0 +1,16 @@
+services:
+  - type: web
+    runtime: python
+    name: get-latest
+    autoDeploy: true
+    buildCommand: ""
+    startCommand: python server.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.3
+      - key: HOST
+        value: 0.0.0.0
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-5-mini
