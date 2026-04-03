@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from html import unescape
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+import xml.etree.ElementTree as ET
 from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import Request, urlopen
 
@@ -19,6 +20,7 @@ USER_AGENT = "get-latest/1.0 (+https://github.com/rudu1/get-latest)"
 BLUESKY_BASE = "https://api.bsky.app/xrpc"
 REDDIT_BASE = "https://www.reddit.com"
 HN_BASE = "https://hacker-news.firebaseio.com/v0"
+GDELT_DOC_BASE = "https://api.gdeltproject.org/api/v2/doc/doc"
 WIKIMEDIA_FEATURED_BASE = "https://api.wikimedia.org/feed/v1/wikipedia/en/featured"
 BLUESKY_HOT_FEED = "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot"
 
@@ -177,6 +179,7 @@ def normalise_bluesky_post(post, bucket):
         "discussion_url": build_bluesky_url(handle, post.get("uri", "")),
         "created_epoch": created_epoch,
         "relative_time": relative_time(created_epoch),
+        "image_url": "",
     }
 
 
@@ -226,6 +229,7 @@ def normalise_reddit_post(post, bucket):
         "discussion_url": f"{REDDIT_BASE}{post.get('permalink', '')}",
         "created_epoch": created_epoch,
         "relative_time": relative_time(created_epoch),
+        "image_url": post.get("thumbnail", "") if isinstance(post.get("thumbnail", ""), str) and post.get("thumbnail", "").startswith("http") else "",
     }
 
 
@@ -248,6 +252,103 @@ def fetch_reddit_search(query, sort, limit=5):
         normalise_reddit_post(item.get("data", {}), bucket)
         for item in data.get("data", {}).get("children", [])
     ]
+
+
+def normalise_news_article(article, bucket):
+    title = trim_text(article.get("title", ""), 110) or "News article"
+    source_domain = article.get("domain", "")
+    source_name = source_domain.replace("www.", "") if source_domain else "news"
+    created_epoch = iso_to_epoch(article.get("seendate", "").replace("Z", "+00:00")) if False else 0
+
+    try:
+        created_epoch = int(datetime.strptime(article.get("seendate", ""), "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc).timestamp())
+    except Exception:
+        created_epoch = 0
+
+    return {
+        "id": f"news:{article.get('url')}",
+        "source": "News",
+        "bucket": bucket,
+        "title": title,
+        "snippet": trim_text(article.get("title", ""), 220) or "Open the article to read the full story.",
+        "author": source_name,
+        "community": source_name,
+        "score": 0,
+        "score_label": "rank",
+        "discussions": 0,
+        "discussions_label": "comments",
+        "extra": article.get("sourcecountry", "global"),
+        "extra_label": "region",
+        "url": article.get("url", ""),
+        "discussion_url": article.get("url", ""),
+        "created_epoch": created_epoch,
+        "relative_time": relative_time(created_epoch),
+        "image_url": article.get("socialimage", ""),
+    }
+
+
+def normalise_google_news_item(item, bucket):
+    source = item.find("source")
+    source_url = source.attrib.get("url", "") if source is not None else ""
+    source_name = (source.text or "Google News").strip() if source is not None else "Google News"
+    article_url = item.findtext("link", "").strip()
+    title = trim_text(item.findtext("title", ""), 110) or "News article"
+    pub_date = item.findtext("pubDate", "")
+    created_epoch = 0
+
+    try:
+        created_epoch = int(datetime.strptime(pub_date, "%a, %d %b %Y %H:%M:%S %Z").replace(tzinfo=timezone.utc).timestamp())
+    except Exception:
+        created_epoch = 0
+
+    favicon = ""
+    if source_url:
+        favicon = f"https://www.google.com/s2/favicons?domain_url={quote(source_url, safe=':/?=&')}&sz=128"
+
+    return {
+        "id": f"news-rss:{article_url}",
+        "source": "News",
+        "bucket": bucket,
+        "title": title,
+        "snippet": title,
+        "author": source_name,
+        "community": source_name,
+        "score": 0,
+        "score_label": "rank",
+        "discussions": 0,
+        "discussions_label": "comments",
+        "extra": "publisher",
+        "extra_label": "type",
+        "url": article_url,
+        "discussion_url": article_url,
+        "created_epoch": created_epoch,
+        "relative_time": relative_time(created_epoch),
+        "image_url": favicon,
+    }
+
+
+def fetch_news_search(query, limit=5):
+    encoded_query = quote(query)
+    url = f"{GDELT_DOC_BASE}?query={encoded_query}&mode=artlist&maxrecords={limit}&format=json&sort=DateDesc"
+    try:
+        data = fetch_json(url, timeout=45)
+        articles = [
+            normalise_news_article(article, "News coverage")
+            for article in data.get("articles", [])
+            if article.get("url")
+        ]
+        if articles:
+            return articles
+    except Exception:
+        pass
+
+    rss_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-IN&gl=IN&ceid=IN:en"
+    request = Request(rss_url, headers={"User-Agent": USER_AGENT, "Accept": "application/xml"})
+    with urlopen(request, timeout=30) as response:
+        xml_text = response.read().decode("utf-8", errors="replace")
+    root = ET.fromstring(xml_text)
+    items = root.findall("./channel/item")
+    return [normalise_google_news_item(item, "News coverage") for item in items[:limit]]
 
 
 def fetch_hn_story_ids(story_type):
@@ -306,6 +407,7 @@ def normalise_hn_story(story, bucket, match_score=0):
         "created_epoch": created_epoch,
         "relative_time": relative_time(created_epoch),
         "match_score": match_score,
+        "image_url": "",
     }
 
 
@@ -543,7 +645,7 @@ def build_local_summary(topic, items):
     summary = (
         f"I found {len(items)} live items across {len(source_breakdown)} sources. "
         f"The strongest recurring themes are {theme_text}, with Bluesky providing social chatter, "
-        f"Reddit adding community discussion, and Hacker News adding link-driven conversation."
+        f"Reddit adding community discussion, news outlets adding reporting, and Hacker News adding link-driven conversation."
     )
 
     suggested_queries = []
@@ -610,7 +712,7 @@ def generate_ai_summary(topic, items):
     ]
 
     prompt = f"""
-You analyze live online discussion from Bluesky, Reddit, and Hacker News.
+You analyze live online discussion and reporting from Bluesky, Reddit, News sites, and Hacker News.
 Return strict JSON only with these keys:
 - headline: short sentence
 - summary: 2-3 sentences
@@ -707,12 +809,18 @@ def build_trending_payload():
 def build_search_payload(query):
     warnings = []
 
+    news_items = []
     bluesky_latest = []
     bluesky_top = []
     reddit_latest = []
     reddit_top = []
     hn_latest = []
     hn_top = []
+
+    try:
+        news_items = fetch_news_search(query, limit=5)
+    except Exception as error:
+        warnings.append(f"News search unavailable: {error}")
 
     try:
         bluesky_latest = fetch_bluesky_search(query, sort="latest", limit=5)
@@ -732,8 +840,8 @@ def build_search_payload(query):
         warnings.append(f"Hacker News search unavailable: {error}")
 
     items = dedupe_items(interleave_groups(
-        [bluesky_latest, reddit_latest, hn_latest, bluesky_top, reddit_top, hn_top],
-        limit=15,
+        [news_items, bluesky_latest, reddit_latest, hn_latest, bluesky_top, reddit_top, hn_top],
+        limit=18,
     ))
 
     summary = build_summary(query, items)

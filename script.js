@@ -200,6 +200,8 @@ function renderCards(container, items) {
 
   items.forEach((item) => {
     const fragment = cardTemplate.content.cloneNode(true);
+    const imageWrap = fragment.querySelector(".card-image-wrap");
+    const image = fragment.querySelector(".card-image");
     const sourcePill = fragment.querySelector(".source-pill");
     const bucketPill = fragment.querySelector(".bucket-pill");
     const timePill = fragment.querySelector(".time-pill");
@@ -226,6 +228,13 @@ function renderCards(container, items) {
     extraStat.textContent = `${item.extra} ${item.extra_label}`;
     openLink.href = item.url;
     discussLink.href = item.discussion_url;
+
+    if (item.image_url) {
+      imageWrap.classList.remove("hidden");
+      image.src = item.image_url;
+      image.alt = item.title;
+      image.loading = "lazy";
+    }
 
     if (item.url === item.discussion_url) {
       discussLink.classList.add("hidden");
